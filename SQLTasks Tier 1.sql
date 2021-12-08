@@ -34,8 +34,16 @@ exploring the data, and getting acquainted with the 3 tables. */
 /* Q1: Some of the facilities charge a fee to members, but some do not.
 Write a SQL query to produce a list of the names of the facilities that do. */
 
+SELECT name, membercost
+FROM Facilities
+WHERE membercost >0
+LIMIT 0 , 30
 
 /* Q2: How many facilities do not charge a fee to members? */
+
+SELECT COUNT( `name` )
+FROM `Facilities`
+WHERE membercost =0
 
 
 /* Q3: Write an SQL query to show a list of facilities that charge a fee to members,
@@ -43,25 +51,57 @@ where the fee is less than 20% of the facility's monthly maintenance cost.
 Return the facid, facility name, member cost, and monthly maintenance of the
 facilities in question. */
 
+SELECT facid, name, membercost, monthlymaintenance
+FROM Facilities
+WHERE (
+membercost >0
+AND membercost < ( .2 * monthlymaintenance )
+)
+LIMIT 0 , 30
 
 /* Q4: Write an SQL query to retrieve the details of facilities with ID 1 and 5.
 Try writing the query without using the OR operator. */
-
+SELECT *
+FROM Facilities
+WHERE facid
+IN ( 1, 5 )
+LIMIT 0 , 30
 
 /* Q5: Produce a list of facilities, with each labelled as
 'cheap' or 'expensive', depending on if their monthly maintenance cost is
 more than $100. Return the name and monthly maintenance of the facilities
 in question. */
 
+CASE WHEN monthlymaintenance >100
+THEN 'expensive'
+ELSE 'cheap'
+END AS facility_cost_category
+FROM Facilities
+LIMIT 0 , 30
 
 /* Q6: You'd like to get the first and last name of the last member(s)
 who signed up. Try not to use the LIMIT clause for your solution. */
 
 
+SELECT firstname, surname, joindate
+FROM Members
+WHERE joindate = (
+SELECT MAX( joindate )
+FROM Members )
+
 /* Q7: Produce a list of all members who have used a tennis court.
 Include in your output the name of the court, and the name of the member
 formatted as a single column. Ensure no duplicate data, and order by
 the member name. */
+
+SELECT f.name AS Tennis_Court, CONCAT ( m.surname, ', ', m.surname ) AS Member_name, COUNT( m.firstname )
+FROM Facilities AS f
+INNER JOIN Bookings AS b ON f.facid = b.facid
+LEFT JOIN Members AS m ON b.memid = m.memid
+WHERE f.facid
+IN ( 0, 1 )
+GROUP BY Tennis_Court, Member_name
+ORDER BY Member_name
 
 
 /* Q8: Produce a list of bookings on the day of 2012-09-14 which
@@ -71,9 +111,36 @@ the guest user's ID is always 0. Include in your output the name of the
 facility, the name of the member formatted as a single column, and the cost.
 Order by descending cost, and do not use any subqueries. */
 
+SELECT f.name, CONCAT ( m.surname, ', ', m.firstname ) AS member_name,
+CASE WHEN b.memid =0
+THEN f.guestcost * b.slots
+ELSE f.membercost * b.slots
+END AS total_booking_cost
+FROM Bookings AS b
+INNER JOIN Facilities AS f ON b.facid = f.facid
+AND b.starttime LIKE '2012-09-14%'
+AND (((b.memid =0) AND (f.guestcost * b.slots >30))
+OR ((b.memid !=0) AND (f.membercost * b.slots >30)))
+INNER JOIN Members AS m ON b.memid = m.memid
+ORDER BY total_booking_cost DESC
 
 /* Q9: This time, produce the same result as in Q8, but using a subquery. */
 
+SELECT *
+FROM (
+
+SELECT f.name, CONCAT( m.surname, ', ', m.firstname ) AS member_name,
+CASE WHEN b.memid =0
+THEN f.guestcost * b.slots
+ELSE f.membercost * b.slots
+END AS total_booking_cost
+FROM Bookings AS b
+INNER JOIN Facilities AS f ON b.facid = f.facid
+AND b.starttime LIKE '2012-09-14%'
+INNER JOIN Members AS m ON b.memid = m.memid
+)sub_query
+WHERE sub_query.total_booking_cost >30
+ORDER BY sub_query.total_booking_cost DESC
 
 /* PART 2: SQLite
 /* We now want you to jump over to a local instance of the database on your machine. 
@@ -94,6 +161,30 @@ QUESTIONS:
 /* Q10: Produce a list of facilities with a total revenue less than 1000.
 The output of facility name and total revenue, sorted by revenue. Remember
 that there's a different cost for guests and members! */
+
+
+
+--
+SELECT facility,SUM(member_revnenue + Guest_Revenue) AS Facility_Total_Revenue
+
+
+
+SELECT f.name AS facility, SUM( b.slots * f.membercost ) AS member_reveneue
+FROM Bookings AS b
+INNER JOIN Facilities AS f ON b.facid = f.facid
+WHERE b.memid !=0
+GROUP BY b.facid
+
+
+
+SELECT f.name AS facility, COUNT( b.bookid ) , SUM( b.slots ) , f.guestcost, SUM( b.slots * f.guestcost ) AS Guest_Revenue
+FROM Bookings AS b
+INNER JOIN Facilities AS f ON b.facid = f.facid
+WHERE b.memid =0
+GROUP BY b.facid
+
+
+
 
 /* Q11: Produce a report of members and who recommended them in alphabetic surname,firstname order */
 
